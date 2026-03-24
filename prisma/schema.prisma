@@ -1,0 +1,37 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String?
+  audits Audit[]
+
+  @@map("users")
+}
+
+enum AuditStatus {
+  PASS
+  FAIL
+}
+
+model Audit {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  imageUrl   String
+  command    String
+  status     AuditStatus
+  reasoning  String   @db.Text
+  confidence Float
+  userId     Int?
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("audits")
+}
