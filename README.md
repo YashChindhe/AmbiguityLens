@@ -1109,7 +1109,7 @@ npx prisma studio
 - Verify database connection
 - Check Google API key validity
 
-## 📚 Resources
+## Resources
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Prisma Documentation](https://www.prisma.io/docs)
@@ -1117,10 +1117,6 @@ npx prisma studio
 - [Neon Documentation](https://neon.tech/docs)
 - [Tailwind CSS](https://tailwindcss.com)
 - [Framer Motion](https://www.framer.com/motion)
-
-## 📄 License
-
-MIT
 
 ##  Contributing
 
