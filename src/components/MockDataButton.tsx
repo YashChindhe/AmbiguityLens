@@ -70,7 +70,7 @@ export function MockDataButton({ onFillForm }: MockDataButtonProps) {
                   {dataset.name}
                 </div>
                 <div className="text-gray-600 dark:text-gray-400 text-xs mt-1 truncate">
-                  "{dataset.command}"
+                  {`"${dataset.command}"`}
                 </div>
               </button>
             ))}
