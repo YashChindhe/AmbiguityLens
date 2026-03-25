@@ -10,7 +10,10 @@ export function middleware(request: NextRequest) {
     // check for authentication token here
     const token = request.cookies.get('auth-token')?.value;
 
-    if (!token && process.env.NODE_ENV === 'production') {
+    // In production, require an auth token only when explicitly enabled via
+    // the `REQUIRE_HISTORY_AUTH` environment variable. This avoids blocking
+    // access in deployments where auth isn't set up (e.g. preview deployments).
+    if (!token && process.env.NODE_ENV === 'production' && process.env.REQUIRE_HISTORY_AUTH === 'true') {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
