@@ -58,6 +58,62 @@ function analyzeCommandLocally(command: string): { status: 'PASS' | 'FAIL'; reas
   };
 }
 
+
+// Real AI auditor using OpenRouter
+async function analyzeWithOpenRouter(command: string): Promise<{ status: 'PASS' | 'FAIL'; reasoning: string; confidence: number } | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'AmbiguityLens',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'user',
+            content: `You are a robotics command auditor. Analyze this command for clarity and executability.
+
+Command: "${command}"
+
+Respond ONLY with valid JSON (no markdown):
+{
+  "status": "PASS",
+  "reasoning": "1-2 sentences why",
+  "confidence": 0.85
+}`
+          }
+        ],
+        temperature: 0.3,
+      })
+    });
+
+    if (!response.ok) throw new Error(`OpenRouter API error: ${response.status}`);
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+    
+    // Simple JSON extraction in case the model returns markdown
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const result = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+
+    return {
+      status: result.status === 'PASS' ? 'PASS' : 'FAIL',
+      reasoning: result.reasoning || 'Unable to provide reasoning',
+      confidence: typeof result.confidence === 'number' ? result.confidence : 0.7,
+    };
+  } catch (error) {
+    console.error('OpenRouter integration error:', error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { imageUrl, command } = await request.json();
@@ -71,9 +127,13 @@ export async function POST(request: NextRequest) {
 
     console.log('Auditing command:', command);
 
-    // Analyze command using local heuristics
-    // To integrate a real AI: replace this function call with actual API call to Gemini/HF/local LLM
-    const result = analyzeCommandLocally(command);
+    // Analyze command: try OpenRouter first, then fallback to local heuristics
+    let result = await analyzeWithOpenRouter(command);
+    
+    if (!result) {
+      console.log('Falling back to local analysis...');
+      result = analyzeCommandLocally(command);
+    }
 
     // Save to database
     try {

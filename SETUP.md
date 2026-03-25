@@ -23,11 +23,13 @@
 DATABASE_URL="postgresql://user:password@host/robotics-auditor-db?sslmode=require"
 ```
 
-### 2. **Google Gemini API Key**
+### 2. **AI Configuration (Gemini or OpenRouter)**
 ```bash
-# Get API key from https://ai.google.dev
-# Add to .env.local:
+# Option A: Google Gemini (https://ai.google.dev)
 GOOGLE_API_KEY="your_key_here"
+
+# Option B: OpenRouter (https://openrouter.ai)
+OPENROUTER_API_KEY="your_key_here"
 ```
 
 ### 3. **Initialize Database**

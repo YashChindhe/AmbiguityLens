@@ -226,6 +226,66 @@ Criteria:
 }
 
 // ============================================================================
+// 5. OPENROUTER (ACCESS MULTIPLE MODELS: CLAUDE, GPT-4, Llama 3)
+// ============================================================================
+// Setup: https://openrouter.ai/
+// 1. Sign up, create API key
+// 2. Add to .env.local: OPENROUTER_API_KEY="sk-or-v1-..."
+// Install: npm install axios
+
+async function analyzeWithOpenRouter(command: string) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY not configured');
+  }
+
+  try {
+    const response = await axios.post(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        model: 'openai/gpt-3.5-turbo', // or 'anthropic/claude-3-haiku', 'meta-llama/llama-3-8b-instruct:free'
+        messages: [
+          {
+            role: 'user',
+            content: `You are a robotics command auditor. Analyze this command for clarity and executability.
+
+Command: "${command}"
+
+Respond ONLY with valid JSON:
+{
+  "status": "PASS",
+  "reasoning": "1-2 sentences why",
+  "confidence": 0.85
+}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 200,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'http://localhost:3000', // Optional, for OpenRouter ranking
+          'X-Title': 'AmbiguityLens', // Optional
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    const content = response.data.choices[0].message.content;
+    const result = JSON.parse(content);
+
+    return {
+      status: result.status || 'FAIL',
+      reasoning: result.reasoning || 'Unable to analyze',
+      confidence: result.confidence || 0.5,
+    };
+  } catch (error) {
+    console.error('OpenRouter error:', error);
+    throw new Error('Failed to call OpenRouter API.');
+  }
+}
+
+// ============================================================================
 // HOW TO USE IN src/app/api/audit/route.ts
 // ============================================================================
 
