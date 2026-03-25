@@ -60,46 +60,61 @@ function analyzeCommandLocally(command: string): { status: 'PASS' | 'FAIL'; reas
 
 
 // Real AI auditor using OpenRouter
-async function analyzeWithOpenRouter(command: string): Promise<{ status: 'PASS' | 'FAIL'; reasoning: string; confidence: number } | null> {
+async function analyzeWithOpenRouter(command: string, imageUrl?: string): Promise<{ status: 'PASS' | 'FAIL'; reasoning: string; confidence: number } | null> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
 
   try {
+    const userMessageContent = imageUrl 
+      ? [
+          { type: 'text', text: `Analyze this command for a robot based on the attached image scenario: "${command}"` },
+          { type: 'image_url', image_url: { url: imageUrl } }
+        ]
+      : `You are a robotics command auditor. Analyze this command for clarity and executability: "${command}"`;
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'AmbiguityLens',
+        'X-Title': 'AmbiguityLens (Production)',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-3.5-turbo',
+        model: 'google/gemini-2.0-flash-exp:free', // Use a versatile free vision model or gpt-4o-mini
         messages: [
           {
-            role: 'user',
-            content: `You are a robotics command auditor. Analyze this command for clarity and executability.
-
-Command: "${command}"
-
+            role: 'system',
+            content: `You are a strict robotics command auditor. Evaluate if a command is clear, specific, and safe for a robot to execute.
 Respond ONLY with valid JSON (no markdown):
 {
-  "status": "PASS",
-  "reasoning": "1-2 sentences why",
-  "confidence": 0.85
+  "status": "PASS" | "FAIL",
+  "reasoning": "A concise explanation of the assessment (1-2 sentences)",
+  "confidence": number between 0 and 1
 }`
+          },
+          {
+            role: 'user',
+            content: userMessageContent
           }
         ],
-        temperature: 0.3,
+        temperature: 0.1, // Lower temperature for more consistent JSON output
+        max_tokens: 300
       })
     });
 
-    if (!response.ok) throw new Error(`OpenRouter API error: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`OpenRouter Error (${response.status}):`, errorText);
+      throw new Error(`OpenRouter API error: ${response.status}`);
+    }
 
     const data = await response.json();
+    if (!data.choices || data.choices.length === 0) throw new Error('Empty response from OpenRouter');
+    
     const content = data.choices[0].message.content.trim();
     
-    // Simple JSON extraction in case the model returns markdown
+    // Simple JSON extraction in case the model returns markdown or conversational text
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     const result = JSON.parse(jsonMatch ? jsonMatch[0] : content);
 
@@ -128,7 +143,7 @@ export async function POST(request: NextRequest) {
     console.log('Auditing command:', command);
 
     // Analyze command: try OpenRouter first, then fallback to local heuristics
-    let result = await analyzeWithOpenRouter(command);
+    let result = await analyzeWithOpenRouter(command, imageUrl);
     
     if (!result) {
       console.log('Falling back to local analysis...');
